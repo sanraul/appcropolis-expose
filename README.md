@@ -1,4 +1,4 @@
-# Expose PHP and Wordpress method to Javascript #
+# Expose PHP and Wordpress methods in Javascript #
 
 This is a proof of concept (POC) to stablish a methodology to 
 quick access PHP and Wordpress method from Javascript. Security
@@ -15,11 +15,10 @@ This is exploratory only.
 ```
 add_action( 'wp_ajax_nopriv_expose', function() {
     $params = empty($_POST['params'])? [] : $_POST['params'];
-    $post = call_user_func_array($_POST['method'], $params);
+    $data = call_user_func_array($_POST['method'], $params);
     $response['success'] = true;
     $response['message'] = 'success';
-    $response['data'] = $post;
-    $response['_POST'] = $_POST;
+    $response['data'] = $data;
 
     header('Content-type: application/json');
     echo json_encode($response, JSON_PRETTY_PRINT);
@@ -31,10 +30,10 @@ add_action( 'wp_ajax_nopriv_expose', function() {
 ### 2. Inside you page template (e.g. page.php) add the Javascript code ###
 
 ```
-\<script src="resources/js/appcropolis.expose.js">\<\/script>
+<script src="resources/js/appcropolis.expose.js"></script>
 ```
 
-### 3. Create an instance of the class (function) and use functionality ###
+### 3. In Javascript, create an instance of the class (function) and use functionality ###
 
 ```
 var wp = new WP();
@@ -160,7 +159,116 @@ function hello($name='Guest') {
 Javascript code:
 
 ```
-
 wp.run('hello', ['Raul']).then(data=>{
     console.log(data); // outputs "Hello, Raul"
 });
+```
+
+### Call remote method and pass multiple parameters ###
+
+PHP code (add to functions.php):
+
+```
+function sum($a=0, $b=0) {
+    $response['success'] = true;
+    $response['message'] = 'success';
+    $response['data'] = (int)$a + (int)$b;
+
+    header('Content-type: application/json');
+    echo json_encode($response, JSON_PRETTY_PRINT);
+    exit;
+}
+```
+
+Javascript code:
+
+```
+wp.run('sum', [12, 34]).then(data=>{
+    console.log(data); // outputs "46"
+});
+```
+
+### Use Wordpress transient to save/retrieve data ###
+
+Store data:
+
+```
+wp.run('set_transient', ['me', 'Raul']).then(data=>{
+    console.log(data); // stores a variable "me"
+});
+```
+
+Retrieve data:
+
+```
+wp.run('get_transient', ['me']).then(data=>{
+    console.log(data); // outputs "Raul"
+});
+```
+
+
+### Create a simple server side storage application (using Wordpress transient) ###
+
+```
+/**
+ * Simple Server-side Storage application 
+ */
+var storage = {
+    /**
+     * Keep all your data within a namespace
+     */
+    namespace: 'com.appcropolis', 
+
+    wp: new WP(),
+
+    /**
+     * Retrieve data based on a key
+     */
+    get: function(key) {
+        return new Promise((resolve, reject)=>{
+            this.wp.run('get_transient', [this.namespace +'.'+ key]).then(data=>{
+                try {
+                    data = JSON.parse ( eval("'" + data + "'") );
+                } catch(e) {}
+                resolve(data);
+            });
+        });
+    }, 
+
+    /**
+     * Set key value pair
+     */
+    set: function(key, value) {
+        value = typeof value == 'object'? JSON.stringify(value) : value;
+        return new Promise((resolve, reject)=>{
+            this.wp.run('set_transient', [this.namespace +'.'+ key, value]).then(data=>{
+                resolve(data);
+            });
+        });
+    }, 
+
+    /**
+     * remove key from transient
+     */
+    unset: function(key) {
+        return new Promise((resolve, reject)=>{
+            this.wp.run('delete_transient', [this.namespace +'.'+ key]).then(data=>{
+                resolve(data);
+            });
+        });
+    }
+};
+
+
+// Testing the app
+storage.set('colors', ['red', 'green', 'blue']).then(data => {
+    console.log(data); // if success, data = true, otherwise is false.
+    storage.get('colors').then(data => {
+        console.log(data); // outputs ['red', 'green', 'blue']
+    });
+});
+```
+
+
+
+
