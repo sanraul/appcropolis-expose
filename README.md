@@ -106,6 +106,21 @@ wp.date('Y-m-d H:i:s').then(data=>{
 
 ```
 wp.expose('scandir', window);
+
+scandir('././').then(data=>{
+     console.log(data);    
+});
+```
+
+
+### Expose "scandir" (PHP) to the window context with an alias ###
+
+```
+wp.expose('scandir', window, 'getDirectoryConent');
+
+getDirectoryConent('././').then(data=>{
+     console.log(data);    
+});
 ```
 
 ### Run a terminal command (ls) ###
